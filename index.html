@@ -165,6 +165,19 @@ width:2px; background:#eee;
 .flow-item:last-child::after { display:none; }
 .flow-time { font-size:0.75rem; color:var(--text-light); min-width:60px; padding-top:2px; }
 .flow-desc { font-size:0.85rem; line-height:1.5; }
+.flow-loc-link {
+color:var(--blue); cursor:pointer; text-decoration:underline;
+text-decoration-style:dotted; text-underline-offset:2px; font-weight:500;
+transition:color 0.2s;
+}
+.flow-loc-link:hover { color:var(--red); text-decoration-style:solid; }
+.loc-item.highlight {
+animation:locHighlight 2s ease-out forwards;
+}
+@keyframes locHighlight {
+0% { background:var(--gold-light); box-shadow:0 0 20px rgba(244,196,48,0.5); }
+100% { background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.06); }
+}
 /* ===== BOTTOM DETAIL PANEL ===== */
 .detail-panel {
 position:fixed; bottom:-100%; left:0; right:0; z-index:900;
@@ -1180,7 +1193,7 @@ container.innerHTML = html;
 else if(tab==='locations') {
 let html = '';
 locations.forEach(loc => {
-html += `<div class="loc-item" onclick="goToLocation('${loc.id}')">
+html += `<div class="loc-item" id="loc-${loc.id}" onclick="goToLocation('${loc.id}')">
         <div class="loc-name">${typeIcons[loc.type]} ${loc.name}</div>
         <div class="loc-addr">${loc.addr||''}</div>
 ${loc.phone?`<div class="loc-addr">📞 ${loc.phone}</div>`:''}
@@ -1196,7 +1209,7 @@ html += `<div class="flow-day"><div class="flow-day-title">${day.title}</div>`;
 day.items.forEach(item => {
 html += `<div class="flow-item">
           <div class="flow-time">${item.time}</div>
-          <div class="flow-desc">${item.desc}</div>
+          <div class="flow-desc">${linkifyFlowDesc(item.desc)}</div>
         </div>`;
       });
 html += `</div>`;
@@ -1220,6 +1233,49 @@ function goToLocation(id) {
 toggleMenu();
 setTimeout(()=>openDetail(id), 400);
 }
+// ===== FLOW LOCATION LINKS =====
+const flowLocKeywords = [
+  {kw:'陋室酩神粥府', id:'rest1'},
+  {kw:'礁溪溫泉公園', id:'act1'},
+  {kw:'全聯五結新生店', id:'pxmart'},
+  {kw:'宜蘭傳藝中心', id:'act2'},
+  {kw:'駿懷舊餐廳', id:'rest3'},
+  {kw:'百匯窯烤雞', id:'rest2'},
+  {kw:'小慕洋', id:'bnb'},
+  {kw:'溫泉公園', id:'act1'},
+  {kw:'傳藝中心', id:'act2'},
+  {kw:'林業園區', id:'act3'},
+  {kw:'觀光工廠', id:'act4'},
+  {kw:'傳藝', id:'act2'},
+].sort((a,b) => b.kw.length - a.kw.length);
+
+function linkifyFlowDesc(desc) {
+  let result = desc;
+  const used = [];
+  flowLocKeywords.forEach(({kw, id}) => {
+    if(used.some(u => kw.includes(u) || u.includes(kw))) return;
+    const idx = result.indexOf(kw);
+    if(idx === -1 || result.lastIndexOf('<', idx) > result.lastIndexOf('>', idx)) return;
+    used.push(kw);
+    result = result.replace(kw, `<span class="flow-loc-link" onclick="navigateToLocation('${id}')">${kw}</span>`);
+  });
+  return result;
+}
+
+function navigateToLocation(locId) {
+  const locBtn = document.querySelectorAll('.menu-tab-btn')[1];
+  switchMenuTab('locations', locBtn);
+  setTimeout(() => {
+    const el = document.getElementById('loc-' + locId);
+    if(el) {
+      el.scrollIntoView({behavior:'smooth', block:'center'});
+      el.classList.remove('highlight');
+      void el.offsetWidth;
+      el.classList.add('highlight');
+      setTimeout(() => el.classList.remove('highlight'), 2500);
+    }
+  }, 100);
+}
 // ===== INIT =====
 updateWeather('all');
 updateWeatherEffect('all');
@@ -1232,6 +1288,7 @@ window.goToLocation = goToLocation;
 window.openDetail = openDetail;
 window.closeDetail = closeDetail;
 window.toggleCheckDetail = toggleCheckDetail;
+window.navigateToLocation = navigateToLocation;
 }); // end DOMContentLoaded
 </script>
 </body>
