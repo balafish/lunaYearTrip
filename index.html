@@ -215,7 +215,12 @@ animation:markerArrive 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards;
 100% { transform:scale(1); box-shadow:0 3px 12px rgba(0,0,0,0.3); }
 }
 .route-segment { transition:opacity 0.3s; }
+.label-icon-wrapper {
+width:0 !important; height:0 !important;
+overflow:visible !important; border:none !important; background:none !important;
+}
 .arrival-label {
+display:inline-block;
 background:rgba(26,26,46,0.92); color:#fff;
 padding:6px 12px; border-radius:10px;
 font-size:0.75rem; line-height:1.4;
@@ -512,7 +517,7 @@ const sch = loc.schedule.find(s => s.day === day);
 const time = sch ? sch.time : '';
 const icon = typeIcons[loc.type] || '';
 const labelIcon = L.divIcon({
-  className:'', iconSize:[0,0],
+  className:'label-icon-wrapper',
   iconAnchor:[-22, 18],
   html:`<div class="arrival-label"><div class="label-name">${icon} ${loc.name}</div>${time?`<div class="label-time">${time}</div>`:''}</div>`
 });
