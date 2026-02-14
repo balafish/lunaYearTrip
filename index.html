@@ -215,6 +215,21 @@ animation:markerArrive 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards;
 100% { transform:scale(1); box-shadow:0 3px 12px rgba(0,0,0,0.3); }
 }
 .route-segment { transition:opacity 0.3s; }
+.arrival-label {
+background:rgba(26,26,46,0.92); color:#fff;
+padding:6px 12px; border-radius:10px;
+font-size:0.75rem; line-height:1.4;
+white-space:nowrap; pointer-events:none;
+box-shadow:0 3px 12px rgba(0,0,0,0.25);
+animation:labelFadeIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards;
+opacity:0; transform:translateY(6px);
+}
+.arrival-label .label-name { font-weight:700; font-size:0.8rem; }
+.arrival-label .label-time { color:var(--gold-light); font-size:0.7rem; margin-top:2px; }
+@keyframes labelFadeIn {
+0% { opacity:0; transform:translateY(6px); }
+100% { opacity:1; transform:translateY(0); }
+}
 /* ===== WEATHER BADGE ===== */
 .weather-badge {
 position:fixed; bottom:20px; left:20px; z-index:800;
@@ -475,6 +490,7 @@ const routeColors = {1:'#C0392B', 2:'#E67E22', 3:'#2980B9'};
 let movingDot = null;
 let animationId = null;
 let animationAborted = false;
+let arrivalLabels = [];
 
 function lerp(a, b, t) { return a + (b - a) * t; }
 function lerpPoint(p1, p2, t) { return [lerp(p1[0],p2[0],t), lerp(p1[1],p2[1],t)]; }
@@ -485,6 +501,23 @@ if(animationId) { cancelAnimationFrame(animationId); animationId = null; }
 routeLines.forEach(l => map.removeLayer(l));
 routeLines = [];
 if(movingDot) { map.removeLayer(movingDot); movingDot = null; }
+arrivalLabels.forEach(l => map.removeLayer(l));
+arrivalLabels = [];
+}
+
+function showArrivalLabel(locId, day) {
+const loc = locations.find(l => l.id === locId);
+if(!loc) return;
+const sch = loc.schedule.find(s => s.day === day);
+const time = sch ? sch.time : '';
+const icon = typeIcons[loc.type] || '';
+const labelIcon = L.divIcon({
+  className:'', iconSize:[0,0],
+  iconAnchor:[-22, 18],
+  html:`<div class="arrival-label"><div class="label-name">${icon} ${loc.name}</div>${time?`<div class="label-time">${time}</div>`:''}</div>`
+});
+const labelMarker = L.marker([loc.lat, loc.lng], {icon:labelIcon, interactive:false, zIndexOffset:8000}).addTo(map);
+arrivalLabels.push(labelMarker);
 }
 
 function pulseMarker(locId) {
@@ -557,6 +590,7 @@ const segDuration = 1000;
 
 // Pulse start marker
 pulseMarker(points[0].id);
+showArrivalLabel(points[0].id, day);
 await new Promise(r => setTimeout(r, 400));
 
 for(let i = 0; i < points.length - 1; i++) {
@@ -568,6 +602,7 @@ for(let i = 0; i < points.length - 1; i++) {
   await animateSegment(points[i].latLng, points[i+1].latLng, routeColors[day], segDuration);
   if(animationAborted) return;
   pulseMarker(points[i+1].id);
+  showArrivalLabel(points[i+1].id, day);
   if(i < points.length - 2) await new Promise(r => setTimeout(r, 300));
 }
 
@@ -604,6 +639,7 @@ for(const d of [1,2,3]) {
   await new Promise(r => setTimeout(r, 800));
 
   pulseMarker(points[0].id);
+  showArrivalLabel(points[0].id, d);
   await new Promise(r => setTimeout(r, 300));
 
   for(let i = 0; i < points.length - 1; i++) {
@@ -614,6 +650,7 @@ for(const d of [1,2,3]) {
     await animateSegment(points[i].latLng, points[i+1].latLng, routeColors[d], 700);
     if(animationAborted) return;
     pulseMarker(points[i+1].id);
+    showArrivalLabel(points[i+1].id, d);
     if(i < points.length - 2) await new Promise(r => setTimeout(r, 200));
   }
   if(d < 3) await new Promise(r => setTimeout(r, 400));
