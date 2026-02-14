@@ -219,15 +219,16 @@ cursor:pointer;
 .marker-shop { background:var(--green); }
 .custom-marker.active { transform:scale(1.3); box-shadow:0 4px 20px rgba(192,57,43,0.5); }
 /* ===== ROUTE ANIMATION ===== */
-.moving-dot {
-width:14px; height:14px; border-radius:50%;
-background:radial-gradient(circle, #fff 30%, var(--gold) 70%);
-box-shadow:0 0 12px 4px rgba(244,196,48,0.6), 0 0 24px 8px rgba(244,196,48,0.3);
-animation:dotPulse 1s ease-in-out infinite;
+.moving-arrow {
+filter:drop-shadow(0 0 8px rgba(244,196,48,0.7)) drop-shadow(0 0 16px rgba(244,196,48,0.4));
+transition:transform 0.15s linear;
 }
-@keyframes dotPulse {
-0%,100% { transform:scale(1); opacity:1; }
-50% { transform:scale(1.4); opacity:0.8; }
+.route-arrow-marker {
+opacity:0; animation:arrowFadeIn 0.4s ease forwards;
+}
+@keyframes arrowFadeIn {
+0% { opacity:0; transform:scale(0.3); }
+100% { opacity:1; transform:scale(1); }
 }
 .custom-marker.marker-arrive {
 animation:markerArrive 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards;
@@ -563,9 +564,18 @@ let movingDot = null;
 let animationId = null;
 let animationAborted = false;
 let arrivalLabels = [];
+let routeArrows = [];
 
 function lerp(a, b, t) { return a + (b - a) * t; }
 function lerpPoint(p1, p2, t) { return [lerp(p1[0],p2[0],t), lerp(p1[1],p2[1],t)]; }
+function bearing(p1, p2) {
+const toRad = x => x * Math.PI / 180;
+const dLng = toRad(p2[1] - p1[1]);
+const lat1 = toRad(p1[0]), lat2 = toRad(p2[0]);
+const y = Math.sin(dLng) * Math.cos(lat2);
+const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
 
 function clearRoutes() {
 animationAborted = true;
@@ -575,6 +585,8 @@ routeLines = [];
 if(movingDot) { map.removeLayer(movingDot); movingDot = null; }
 arrivalLabels.forEach(l => map.removeLayer(l));
 arrivalLabels = [];
+routeArrows.forEach(l => map.removeLayer(l));
+routeArrows = [];
 }
 
 function showArrivalLabel(locId, day) {
@@ -601,6 +613,18 @@ el.classList.add('marker-arrive');
 setTimeout(() => el.classList.remove('marker-arrive'), 700);
 }
 
+function addRouteArrows(from, to, color) {
+const b = bearing(from, to);
+[0.3, 0.65].forEach(t => {
+  const pos = lerpPoint(from, to, t);
+  const icon = L.divIcon({
+    className:'', iconSize:[12,16], iconAnchor:[6,8],
+    html:`<div class="route-arrow-marker"><svg width="12" height="16" viewBox="0 0 12 16" style="transform:rotate(${b}deg)"><path d="M6 0L12 16L6 11L0 16Z" fill="${color}" opacity="0.75"/></svg></div>`
+  });
+  routeArrows.push(L.marker(pos, {icon, interactive:false, zIndexOffset:5000}).addTo(map));
+});
+}
+
 function animateSegment(from, to, color, duration) {
 return new Promise(resolve => {
   const line = L.polyline([from, from], {
@@ -609,9 +633,15 @@ return new Promise(resolve => {
   }).addTo(map);
   routeLines.push(line);
 
+  const b = bearing(from, to);
   if(!movingDot) {
-    const dotIcon = L.divIcon({ className:'', iconSize:[14,14], iconAnchor:[7,7], html:'<div class="moving-dot"></div>' });
-    movingDot = L.marker(from, {icon:dotIcon, zIndexOffset:9999}).addTo(map);
+    const arrowIcon = L.divIcon({ className:'', iconSize:[20,24], iconAnchor:[10,12],
+      html:`<div class="moving-arrow" style="transform:rotate(${b}deg)"><svg width="20" height="24" viewBox="0 0 20 24"><path d="M10 0L20 24L10 17L0 24Z" fill="#F4C430" stroke="#fff" stroke-width="1.5"/></svg></div>`
+    });
+    movingDot = L.marker(from, {icon:arrowIcon, zIndexOffset:9999}).addTo(map);
+  } else {
+    const el = movingDot.getElement();
+    if(el) { const a = el.querySelector('.moving-arrow'); if(a) a.style.transform = `rotate(${b}deg)`; }
   }
 
   const startTime = performance.now();
@@ -625,7 +655,7 @@ return new Promise(resolve => {
     line.setLatLngs([from, current]);
     if(movingDot) movingDot.setLatLng(current);
     if(t < 1) { animationId = requestAnimationFrame(step); }
-    else { resolve(); }
+    else { addRouteArrows(from, to, color); resolve(); }
   }
   animationId = requestAnimationFrame(step);
 });
