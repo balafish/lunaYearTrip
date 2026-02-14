@@ -290,6 +290,136 @@ transition:all 0.3s;
 }
 /* hide leaflet attribution clutter */
 .leaflet-control-attribution { font-size:9px !important; }
+/* ===== WEATHER EFFECTS OVERLAY ===== */
+.weather-overlay {
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  z-index:2; pointer-events:none; overflow:hidden;
+  transition:opacity 0.6s ease;
+}
+/* --- Day Transition Flash --- */
+.day-transition {
+  position:fixed; top:0; left:0; width:100%; height:100%;
+  z-index:3; pointer-events:none;
+  background:radial-gradient(ellipse at center, rgba(255,255,255,0.9), rgba(255,248,240,0.6));
+  opacity:0; transition:opacity 0.3s ease;
+}
+.day-transition.active {
+  animation:dayFlash 0.7s ease-out forwards;
+}
+@keyframes dayFlash {
+  0% { opacity:0; }
+  20% { opacity:1; }
+  100% { opacity:0; }
+}
+/* --- SUNNY EFFECT (Day 1) --- */
+.sun-glow {
+  position:absolute; top:-80px; right:-80px;
+  width:280px; height:280px;
+  background:radial-gradient(circle, rgba(244,196,48,0.45) 0%, rgba(244,196,48,0.15) 40%, transparent 70%);
+  border-radius:50%;
+  animation:sunPulse 4s ease-in-out infinite;
+}
+@keyframes sunPulse {
+  0%,100% { transform:scale(1); opacity:0.8; }
+  50% { transform:scale(1.15); opacity:1; }
+}
+.sun-ray {
+  position:absolute; top:60px; right:60px;
+  width:200px; height:200px;
+  animation:sunSpin 20s linear infinite;
+}
+@keyframes sunSpin {
+  from { transform:rotate(0deg); }
+  to { transform:rotate(360deg); }
+}
+.sun-ray-beam {
+  position:absolute; top:50%; left:50%;
+  width:3px; height:120px;
+  background:linear-gradient(to bottom, rgba(244,196,48,0.5), transparent);
+  transform-origin:top center;
+  border-radius:2px;
+}
+.sun-sparkle {
+  position:absolute;
+  width:4px; height:4px;
+  background:rgba(255,230,140,0.9);
+  border-radius:50%;
+  box-shadow:0 0 6px 2px rgba(244,196,48,0.4);
+  animation:sparkle 3s ease-in-out infinite;
+}
+@keyframes sparkle {
+  0%,100% { opacity:0; transform:scale(0.5); }
+  50% { opacity:1; transform:scale(1.2); }
+}
+/* --- CLOUDY EFFECT (Day 2) --- */
+.cloud {
+  position:absolute;
+  background:radial-gradient(ellipse at 50% 50%, rgba(255,255,255,0.85), rgba(220,220,230,0.4) 70%, transparent 100%);
+  border-radius:50%;
+  filter:blur(2px);
+  animation:cloudFloat linear infinite;
+}
+@keyframes cloudFloat {
+  from { transform:translateX(-200px); }
+  to { transform:translateX(calc(100vw + 200px)); }
+}
+.drizzle-drop {
+  position:absolute;
+  width:1.5px;
+  background:linear-gradient(to bottom, transparent, rgba(174,194,224,0.6));
+  border-radius:0 0 2px 2px;
+  animation:drizzleFall linear infinite;
+}
+@keyframes drizzleFall {
+  0% { transform:translateY(-20px); opacity:0; }
+  10% { opacity:1; }
+  90% { opacity:0.6; }
+  100% { transform:translateY(100vh); opacity:0; }
+}
+/* --- RAINY EFFECT (Day 3) --- */
+.rain-overlay-tint {
+  position:absolute; top:0; left:0; width:100%; height:100%;
+  background:linear-gradient(180deg, rgba(100,110,130,0.15) 0%, rgba(80,90,110,0.08) 100%);
+}
+.rain-drop {
+  position:absolute;
+  width:2px;
+  background:linear-gradient(to bottom, transparent, rgba(174,194,224,0.8));
+  border-radius:0 0 2px 2px;
+  animation:rainFall linear infinite;
+}
+@keyframes rainFall {
+  0% { transform:translateY(-30px) rotate(8deg); opacity:0; }
+  8% { opacity:1; }
+  85% { opacity:0.7; }
+  100% { transform:translateY(100vh) rotate(8deg); opacity:0; }
+}
+.rain-splash {
+  position:absolute; bottom:0;
+  width:6px; height:3px;
+  border-radius:50%;
+  background:rgba(174,194,224,0.3);
+  animation:splash 1.8s ease-out infinite;
+}
+@keyframes splash {
+  0% { transform:scale(0); opacity:1; }
+  50% { transform:scale(2.5); opacity:0.4; }
+  100% { transform:scale(0); opacity:0; }
+}
+.rain-mist {
+  position:absolute; bottom:0; left:0; width:100%; height:15%;
+  background:linear-gradient(to top, rgba(180,195,220,0.12), transparent);
+  animation:mistPulse 5s ease-in-out infinite;
+}
+@keyframes mistPulse {
+  0%,100% { opacity:0.5; }
+  50% { opacity:1; }
+}
+/* responsive adjustments */
+@media(max-width:768px) {
+  .sun-glow { width:180px; height:180px; top:-50px; right:-50px; }
+  .sun-ray { width:140px; height:140px; top:40px; right:40px; }
+}
 </style>
 </head>
 <body>
@@ -332,6 +462,9 @@ transition:all 0.3s;
 <button class="detail-close" onclick="closeDetail()">✕</button>
 <div class="detail-content" id="detailContent"></div>
 </div>
+<!-- WEATHER EFFECTS -->
+<div class="weather-overlay" id="weatherOverlay"></div>
+<div class="day-transition" id="dayTransition"></div>
 <!-- WEATHER -->
 <div class="weather-badge" id="weatherBadge"></div>
 <script>
@@ -774,10 +907,153 @@ if(movingDot) {
   setTimeout(() => { if(movingDot) { map.removeLayer(movingDot); movingDot = null; } }, 900);
 }
 }
+// ===== WEATHER EFFECTS =====
+let currentWeatherDay = 'all';
+
+function createSunnyEffect(container) {
+  // Sun glow
+  const glow = document.createElement('div');
+  glow.className = 'sun-glow';
+  container.appendChild(glow);
+  // Rotating rays
+  const rayContainer = document.createElement('div');
+  rayContainer.className = 'sun-ray';
+  for (let i = 0; i < 12; i++) {
+    const beam = document.createElement('div');
+    beam.className = 'sun-ray-beam';
+    beam.style.transform = `rotate(${i * 30}deg)`;
+    rayContainer.appendChild(beam);
+  }
+  container.appendChild(rayContainer);
+  // Sparkles
+  for (let i = 0; i < 15; i++) {
+    const sparkle = document.createElement('div');
+    sparkle.className = 'sun-sparkle';
+    sparkle.style.top = (5 + Math.random() * 40) + '%';
+    sparkle.style.left = (40 + Math.random() * 55) + '%';
+    sparkle.style.animationDelay = (Math.random() * 3) + 's';
+    sparkle.style.animationDuration = (2 + Math.random() * 2) + 's';
+    container.appendChild(sparkle);
+  }
+}
+
+function createCloudyEffect(container) {
+  // Clouds
+  const cloudSizes = [
+    {w:180, h:60, top:'8%', dur:35, delay:0, opacity:0.7},
+    {w:240, h:80, top:'5%', dur:45, delay:8, opacity:0.6},
+    {w:140, h:50, top:'15%', dur:30, delay:15, opacity:0.5},
+    {w:200, h:65, top:'3%', dur:50, delay:22, opacity:0.55},
+    {w:160, h:55, top:'12%', dur:38, delay:5, opacity:0.45},
+  ];
+  cloudSizes.forEach(c => {
+    const cloud = document.createElement('div');
+    cloud.className = 'cloud';
+    cloud.style.width = c.w + 'px';
+    cloud.style.height = c.h + 'px';
+    cloud.style.top = c.top;
+    cloud.style.animationDuration = c.dur + 's';
+    cloud.style.animationDelay = -c.delay + 's';
+    cloud.style.opacity = c.opacity;
+    container.appendChild(cloud);
+  });
+  // Light drizzle
+  for (let i = 0; i < 30; i++) {
+    const drop = document.createElement('div');
+    drop.className = 'drizzle-drop';
+    drop.style.left = Math.random() * 100 + '%';
+    drop.style.height = (8 + Math.random() * 12) + 'px';
+    drop.style.animationDuration = (1.5 + Math.random() * 1.5) + 's';
+    drop.style.animationDelay = Math.random() * 3 + 's';
+    container.appendChild(drop);
+  }
+}
+
+function createRainyEffect(container) {
+  // Dark tint overlay
+  const tint = document.createElement('div');
+  tint.className = 'rain-overlay-tint';
+  container.appendChild(tint);
+  // Rain drops
+  for (let i = 0; i < 80; i++) {
+    const drop = document.createElement('div');
+    drop.className = 'rain-drop';
+    drop.style.left = Math.random() * 100 + '%';
+    drop.style.height = (14 + Math.random() * 18) + 'px';
+    drop.style.animationDuration = (0.6 + Math.random() * 0.6) + 's';
+    drop.style.animationDelay = Math.random() * 2 + 's';
+    container.appendChild(drop);
+  }
+  // Splashes at bottom
+  for (let i = 0; i < 15; i++) {
+    const splash = document.createElement('div');
+    splash.className = 'rain-splash';
+    splash.style.left = Math.random() * 100 + '%';
+    splash.style.animationDelay = Math.random() * 2 + 's';
+    splash.style.animationDuration = (1.2 + Math.random() * 1) + 's';
+    container.appendChild(splash);
+  }
+  // Bottom mist
+  const mist = document.createElement('div');
+  mist.className = 'rain-mist';
+  container.appendChild(mist);
+  // A few heavier clouds
+  const cloudSizes = [
+    {w:220, h:70, top:'3%', dur:40, delay:0, opacity:0.6},
+    {w:280, h:90, top:'0%', dur:55, delay:12, opacity:0.5},
+    {w:180, h:60, top:'8%', dur:35, delay:25, opacity:0.45},
+  ];
+  cloudSizes.forEach(c => {
+    const cloud = document.createElement('div');
+    cloud.className = 'cloud';
+    cloud.style.width = c.w + 'px';
+    cloud.style.height = c.h + 'px';
+    cloud.style.top = c.top;
+    cloud.style.animationDuration = c.dur + 's';
+    cloud.style.animationDelay = -c.delay + 's';
+    cloud.style.opacity = c.opacity;
+    container.appendChild(cloud);
+  });
+}
+
+function triggerDayTransition() {
+  const el = document.getElementById('dayTransition');
+  el.classList.remove('active');
+  void el.offsetWidth; // force reflow
+  el.classList.add('active');
+  setTimeout(() => el.classList.remove('active'), 800);
+}
+
+function updateWeatherEffect(day) {
+  const overlay = document.getElementById('weatherOverlay');
+  // Fade out
+  overlay.style.opacity = '0';
+  setTimeout(() => {
+    overlay.innerHTML = '';
+    if (day === 'all') {
+      // No weather effect in overview mode
+      overlay.style.opacity = '1';
+      return;
+    }
+    switch(day) {
+      case 1: createSunnyEffect(overlay); break;
+      case 2: createCloudyEffect(overlay); break;
+      case 3: createRainyEffect(overlay); break;
+    }
+    // Fade in
+    overlay.style.opacity = '1';
+  }, 350);
+}
+
 // ===== DAY FILTER =====
 function showDay(day, btn) {
 document.querySelectorAll('.day-tab').forEach(t=>t.classList.remove('active'));
 btn.classList.add('active');
+// Trigger transition effect
+if (currentWeatherDay !== day) {
+  triggerDayTransition();
+  currentWeatherDay = day;
+}
 // Show/hide markers
 locations.forEach(loc => {
 const m = markers[loc.id];
@@ -788,6 +1064,7 @@ m.setOpacity(0.2);
     }
   });
 updateWeather(day);
+updateWeatherEffect(day);
 if(day==='all') drawAllRoutes();
 else drawRoute(day);
 }
@@ -943,6 +1220,7 @@ setTimeout(()=>openDetail(id), 400);
 }
 // ===== INIT =====
 updateWeather('all');
+updateWeatherEffect('all');
 drawAllRoutes();
 // Expose functions to global scope for onclick handlers
 window.showDay = showDay;
