@@ -196,8 +196,25 @@ cursor:pointer;
 .marker-shop { background:var(--green); }
 .custom-marker.active { transform:scale(1.3); box-shadow:0 4px 20px rgba(192,57,43,0.5); }
 /* ===== ROUTE ANIMATION ===== */
-.leaflet-route-animated { stroke-dasharray:1000; stroke-dashoffset:1000; animation:drawRoute 3s ease forwards; }
-@keyframes drawRoute { to { stroke-dashoffset:0; } }
+.moving-dot {
+width:14px; height:14px; border-radius:50%;
+background:radial-gradient(circle, #fff 30%, var(--gold) 70%);
+box-shadow:0 0 12px 4px rgba(244,196,48,0.6), 0 0 24px 8px rgba(244,196,48,0.3);
+animation:dotPulse 1s ease-in-out infinite;
+}
+@keyframes dotPulse {
+0%,100% { transform:scale(1); opacity:1; }
+50% { transform:scale(1.4); opacity:0.8; }
+}
+.custom-marker.marker-arrive {
+animation:markerArrive 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+@keyframes markerArrive {
+0% { transform:scale(1); box-shadow:0 3px 12px rgba(0,0,0,0.3); }
+40% { transform:scale(1.5); box-shadow:0 0 20px 6px rgba(244,196,48,0.5); }
+100% { transform:scale(1); box-shadow:0 3px 12px rgba(0,0,0,0.3); }
+}
+.route-segment { transition:opacity 0.3s; }
 /* ===== WEATHER BADGE ===== */
 .weather-badge {
 position:fixed; bottom:20px; left:20px; z-index:800;
@@ -455,34 +472,166 @@ const dayRoutes = {
 3: ['bnb','rest3'],
 };
 const routeColors = {1:'#C0392B', 2:'#E67E22', 3:'#2980B9'};
-function drawRoute(day) {
+let movingDot = null;
+let animationId = null;
+let animationAborted = false;
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+function lerpPoint(p1, p2, t) { return [lerp(p1[0],p2[0],t), lerp(p1[1],p2[1],t)]; }
+
+function clearRoutes() {
+animationAborted = true;
+if(animationId) { cancelAnimationFrame(animationId); animationId = null; }
+routeLines.forEach(l => map.removeLayer(l));
+routeLines = [];
+if(movingDot) { map.removeLayer(movingDot); movingDot = null; }
+}
+
+function pulseMarker(locId) {
+const el = document.querySelector(`.custom-marker[data-id="${locId}"]`);
+if(!el) return;
+el.classList.remove('marker-arrive');
+void el.offsetWidth;
+el.classList.add('marker-arrive');
+setTimeout(() => el.classList.remove('marker-arrive'), 700);
+}
+
+function animateSegment(from, to, color, duration) {
+return new Promise(resolve => {
+  const line = L.polyline([from, from], {
+    color, weight:5, opacity:0.85, lineCap:'round', lineJoin:'round',
+    className:'route-segment'
+  }).addTo(map);
+  routeLines.push(line);
+
+  if(!movingDot) {
+    const dotIcon = L.divIcon({ className:'', iconSize:[14,14], iconAnchor:[7,7], html:'<div class="moving-dot"></div>' });
+    movingDot = L.marker(from, {icon:dotIcon, zIndexOffset:9999}).addTo(map);
+  }
+
+  const startTime = performance.now();
+  const savedAborted = animationAborted;
+
+  function step(now) {
+    if(animationAborted !== savedAborted) { resolve(); return; }
+    const t = Math.min((now - startTime) / duration, 1);
+    const eased = t < 0.5 ? 2*t*t : -1+(4-2*t)*t; // easeInOut
+    const current = lerpPoint(from, to, eased);
+    line.setLatLngs([from, current]);
+    if(movingDot) movingDot.setLatLng(current);
+    if(t < 1) { animationId = requestAnimationFrame(step); }
+    else { resolve(); }
+  }
+  animationId = requestAnimationFrame(step);
+});
+}
+
+function segmentZoom(p1, p2) {
+const dist = Math.sqrt(Math.pow(p1[0]-p2[0],2) + Math.pow(p1[1]-p2[1],2));
+if(dist > 0.12) return 12;
+if(dist > 0.05) return 13;
+if(dist > 0.02) return 14;
+return 15;
+}
+
+function panToSegment(p1, p2) {
+const mid = lerpPoint(p1, p2, 0.5);
+const zoom = segmentZoom(p1, p2);
+map.flyTo(mid, zoom, {duration:0.8, easeLinearity:0.4});
+}
+
+async function drawRoute(day) {
 clearRoutes();
+animationAborted = false;
 const ids = dayRoutes[day];
 if(!ids) return;
 const points = ids.map(id => {
-const loc = locations.find(l=>l.id===id);
-return [loc.lat, loc.lng];
-  });
-const line = L.polyline(points, {
-color:routeColors[day], weight:4, opacity:0.7, dashArray:'10,8',
-className:'leaflet-route-animated'
-  }).addTo(map);
-routeLines.push(line);
-// Fit bounds
-const allPts = ids.map(id => {const l=locations.find(x=>x.id===id); return [l.lat,l.lng];});
-map.fitBounds(allPts, {padding:[80,50], maxZoom:14});
+  const loc = locations.find(l=>l.id===id);
+  return { latLng:[loc.lat, loc.lng], id:loc.id };
+});
+
+// Zoom to start point
+map.flyTo(points[0].latLng, 14, {duration:0.8});
+await new Promise(r => setTimeout(r, 900));
+const segDuration = 1000;
+
+// Pulse start marker
+pulseMarker(points[0].id);
+await new Promise(r => setTimeout(r, 400));
+
+for(let i = 0; i < points.length - 1; i++) {
+  if(animationAborted) return;
+  // Pan map to show current segment
+  panToSegment(points[i].latLng, points[i+1].latLng);
+  await new Promise(r => setTimeout(r, 500));
+  if(animationAborted) return;
+  await animateSegment(points[i].latLng, points[i+1].latLng, routeColors[day], segDuration);
+  if(animationAborted) return;
+  pulseMarker(points[i+1].id);
+  if(i < points.length - 2) await new Promise(r => setTimeout(r, 300));
 }
-function drawAllRoutes() {
+
+// Zoom out to show full route
+await new Promise(r => setTimeout(r, 500));
+if(!animationAborted) {
+  map.fitBounds(points.map(p=>p.latLng), {padding:[80,50], maxZoom:14, duration:1});
+}
+
+// Fade out dot
+if(movingDot) {
+  const dotEl = movingDot.getElement();
+  if(dotEl) { dotEl.style.transition = 'opacity 0.8s'; dotEl.style.opacity = '0'; }
+  setTimeout(() => { if(movingDot) { map.removeLayer(movingDot); movingDot = null; } }, 900);
+}
+}
+
+async function drawAllRoutes() {
 clearRoutes();
-[1,2,3].forEach(d => {
-const ids = dayRoutes[d];
-const pts = ids.map(id => {const l=locations.find(x=>x.id===id); return [l.lat,l.lng];});
-const line = L.polyline(pts, {color:routeColors[d], weight:3, opacity:0.5, dashArray:'8,6'}).addTo(map);
-routeLines.push(line);
-  });
+animationAborted = false;
 map.fitBounds(locations.map(l=>[l.lat,l.lng]), {padding:[80,60]});
+await new Promise(r => setTimeout(r, 600));
+
+for(const d of [1,2,3]) {
+  if(animationAborted) return;
+  const ids = dayRoutes[d];
+  const points = ids.map(id => {
+    const loc = locations.find(x=>x.id===id);
+    return { latLng:[loc.lat,loc.lng], id:loc.id };
+  });
+
+  // Zoom to start of this day's route
+  map.flyTo(points[0].latLng, 14, {duration:0.7});
+  await new Promise(r => setTimeout(r, 800));
+
+  pulseMarker(points[0].id);
+  await new Promise(r => setTimeout(r, 300));
+
+  for(let i = 0; i < points.length - 1; i++) {
+    if(animationAborted) return;
+    panToSegment(points[i].latLng, points[i+1].latLng);
+    await new Promise(r => setTimeout(r, 400));
+    if(animationAborted) return;
+    await animateSegment(points[i].latLng, points[i+1].latLng, routeColors[d], 700);
+    if(animationAborted) return;
+    pulseMarker(points[i+1].id);
+    if(i < points.length - 2) await new Promise(r => setTimeout(r, 200));
+  }
+  if(d < 3) await new Promise(r => setTimeout(r, 400));
 }
-function clearRoutes() { routeLines.forEach(l=>map.removeLayer(l)); routeLines=[]; }
+
+// Zoom out to show all routes
+await new Promise(r => setTimeout(r, 400));
+if(!animationAborted) {
+  map.fitBounds(locations.map(l=>[l.lat,l.lng]), {padding:[80,60], duration:1});
+}
+
+// Fade out dot
+if(movingDot) {
+  const dotEl = movingDot.getElement();
+  if(dotEl) { dotEl.style.transition = 'opacity 0.8s'; dotEl.style.opacity = '0'; }
+  setTimeout(() => { if(movingDot) { map.removeLayer(movingDot); movingDot = null; } }, 900);
+}
+}
 // ===== DAY FILTER =====
 function showDay(day, btn) {
 document.querySelectorAll('.day-tab').forEach(t=>t.classList.remove('active'));
