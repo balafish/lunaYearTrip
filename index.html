@@ -246,6 +246,7 @@ transition:all 0.3s;
 .detail-panel.open ~ .weather-badge { bottom:calc(55vh + 10px); }
 .weather-day { display:flex; align-items:center; gap:8px; padding:3px 0; }
 .weather-temp { color:var(--gold); font-weight:700; }
+.weather-outfit { font-size:0.7rem; color:rgba(255,255,255,0.7); padding:5px 0 0; margin-top:5px; border-top:1px solid rgba(255,255,255,0.15); line-height:1.5; }
 /* ===== RWD ===== */
 @media(max-width:768px) {
 .header h1 { font-size:1.1rem; }
@@ -305,11 +306,7 @@ transition:all 0.3s;
 <div class="detail-content" id="detailContent"></div>
 </div>
 <!-- WEATHER -->
-<div class="weather-badge" id="weatherBadge">
-<div class="weather-day">☀️ 2/15 小年夜：<span class="weather-temp">23°C</span> 晴朗 降雨0%</div>
-<div class="weather-day">🌥 2/16 除夕：<span class="weather-temp">22°C</span> 多雲偶雨 降雨25%</div>
-<div class="weather-day">🌧 2/17 初一：<span class="weather-temp">15°C</span> 轉涼有雨 降雨35%</div>
-</div>
+<div class="weather-badge" id="weatherBadge"></div>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
 // ===== DATA =====
@@ -461,6 +458,14 @@ const flowData = [
     {time:'午餐', desc:'駿懷舊餐廳（羅東，已訂）'},
     {time:'下午', desc:'退房、返回台北 🚗'},
 ]},
+];
+const weatherData = [
+  {day:1, icon:'☀️', date:'2/15 小年夜', temp:'23°C', desc:'晴朗', rain:'0%',
+   outfit:'薄長袖+外搭薄外套，白天溫暖可穿短袖，泡腳建議帶拖鞋'},
+  {day:2, icon:'🌥', date:'2/16 除夕', temp:'22°C', desc:'多雲偶雨', rain:'25%',
+   outfit:'長袖+薄外套，建議帶摺疊傘，外出穿好走防滑鞋'},
+  {day:3, icon:'🌧', date:'2/17 初一', temp:'15°C', desc:'轉涼有雨', rain:'35%',
+   outfit:'長袖+保暖外套或風衣，必帶雨具，小朋友加件背心'},
 ];
 // ===== MAP INIT =====
 const map = L.map('map', {zoomControl:false, attributionControl:true}).setView([24.74, 121.78], 12);
@@ -687,8 +692,21 @@ m.setOpacity(1);
 m.setOpacity(0.2);
     }
   });
+updateWeather(day);
 if(day==='all') drawAllRoutes();
 else drawRoute(day);
+}
+// ===== WEATHER UPDATE =====
+function updateWeather(day) {
+const badge = document.getElementById('weatherBadge');
+const days = day === 'all' ? weatherData : weatherData.filter(w => w.day === day);
+let html = '';
+days.forEach(w => {
+  html += `<div class="weather-day">${w.icon} ${w.date}：<span class="weather-temp">${w.temp}</span> ${w.desc} 降雨${w.rain}</div>`;
+});
+const outfits = days.map(w => `${w.icon} ${w.outfit}`).join('<br>');
+html += `<div class="weather-outfit">👔 ${days.length > 1 ? '穿搭建議' : '今日穿搭'}<br>${outfits}</div>`;
+badge.innerHTML = html;
 }
 // ===== DETAIL PANEL =====
 function openDetail(id) {
@@ -805,6 +823,7 @@ toggleMenu();
 setTimeout(()=>openDetail(id), 400);
 }
 // ===== INIT =====
+updateWeather('all');
 drawAllRoutes();
 // Expose functions to global scope for onclick handlers
 window.showDay = showDay;
