@@ -103,14 +103,37 @@ border-bottom:3px solid transparent; font-family:inherit;
 .menu-content { padding:16px; }
 /* Checklist */
 .check-item {
-display:flex; align-items:flex-start; gap:10px; padding:12px;
 border-radius:12px; margin-bottom:8px; background:#fff;
 box-shadow:0 2px 8px rgba(0,0,0,0.06); transition:all 0.2s;
+overflow:hidden;
 }
 .check-item:hover { box-shadow:0 4px 16px rgba(0,0,0,0.1); }
+.check-item-header {
+display:flex; align-items:flex-start; gap:10px; padding:12px;
+cursor:pointer; transition:background 0.2s;
+}
+.check-item-header:hover { background:rgba(192,57,43,0.04); }
+.check-item.has-details .check-item-header { padding-right:36px; position:relative; }
+.check-item.has-details .check-item-header::after {
+content:''; position:absolute; right:14px; top:50%; transform:translateY(-50%) rotate(0deg);
+width:8px; height:8px; border-right:2px solid var(--text-light); border-bottom:2px solid var(--text-light);
+transform:translateY(-50%) rotate(45deg); transition:transform 0.3s;
+}
+.check-item.expanded .check-item-header::after { transform:translateY(-50%) rotate(-135deg); }
 .check-icon { font-size:1.2rem; flex-shrink:0; margin-top:2px; }
-.check-text { font-size:0.85rem; line-height:1.5; }
+.check-text { font-size:0.85rem; line-height:1.5; flex:1; }
 .check-text .owner { font-size:0.7rem; color:var(--text-light); display:block; margin-top:2px; }
+.check-details {
+max-height:0; overflow:hidden; transition:max-height 0.4s cubic-bezier(0.4,0,0.2,1);
+background:#fafafa; border-top:0 solid #f0f0f0;
+}
+.check-item.expanded .check-details { border-top-width:1px; }
+.check-details-inner { padding:12px 14px; }
+.check-detail-group { margin-bottom:10px; }
+.check-detail-group:last-child { margin-bottom:0; }
+.check-detail-title { font-size:0.8rem; font-weight:600; color:var(--red-dark); margin-bottom:4px; }
+.check-detail-item { font-size:0.78rem; color:var(--text); padding:2px 0 2px 14px; position:relative; line-height:1.6; }
+.check-detail-item::before { content:'·'; position:absolute; left:2px; font-weight:700; color:var(--red); }
 /* Locations */
 .loc-item {
 padding:14px; border-radius:12px; margin-bottom:10px; background:#fff;
@@ -429,17 +452,51 @@ familyInfo:[]
   },
 ];
 const checklist = [
-  {text:'除夕/初一早餐：各家點餐完成', owner:'各家', done:true},
-  {text:'小年夜中餐：陋室酩神粥府訂位', owner:'筱芳', done:true},
-  {text:'初一午餐：駿懷舊餐廳訂位', owner:'筱芳', done:true},
-  {text:'Ryan海鮮食材購買（除夕晚餐用）', owner:'Ryan', done:true},
-  {text:'阿嬤佛跳牆火鍋湯底 + 白米', owner:'阿嬤', done:true},
-  {text:'姊姊家食材與器具準備', owner:'姊姊家', done:true},
-  {text:'小年夜晚餐：百匯窯烤雞餐廳外帶', owner:'筱芳', done:true},
-  {text:'除夕上午外出行程（傳藝中心/林業園區/觀光工廠擇一）', owner:'全體', done:false},
-  {text:'小年夜午餐後行程（溫泉公園/傳藝中心/直接回民宿）', owner:'全體', done:false},
-  {text:'2/15下午全聯採買：火鍋料、蔬菜、飲料、乾糧、餐具', owner:'待分配', done:false},
-  {text:'2/16早上外帶壽司（耕壽司 或 全聯現成壽司盒）', owner:'待分配', done:false},
+  {text:'除夕/初一早餐：各家點餐完成', owner:'各家', done:true, details:[
+    {title:'姐姐家（兩天一樣）', items:['文宗媽：芋頭糕+蘿蔔糕+熱中杯綠茶','文宗爸：肉排蛋堡+熱中杯拿鐵','東東：起司蛋堡+中冰柳橙汁','西西：招牌起司蛋餅+中冰柳橙汁','文宗：總匯漢堡+熱中杯奶茶','蘭芬：起司蛋吐司+熱中杯奶茶']},
+    {title:'哥哥家', items:['【第一天】里肌蛋吐司×4、中杯無糖豆漿×3、大杯無糖紅茶×1','【第二天】招牌起司蛋餅、中杯無糖豆漿×3、大杯無糖紅茶×1']},
+    {title:'林家爸媽（兩天一樣）', items:['鮪魚蛋吐司×2','拿鐵無糖中杯（熱）']},
+    {title:'辰翰家', items:['【第一天】桓桓：熱狗一份+花生醬吐司/烤酥','【第一天】筱芳：玉米蛋餅+中冰奶無糖','【第一天】辰翰：薯餅蛋餅+大冰紅茶','【第二天】桓桓：香雞堡（不加蛋不加菜不加醬只加起司）+薯條一份','【第二天】筱芳：里肌蛋餅+中冰奶無糖','【第二天】辰翰：肉鬆蛋餅+大冰奶']},
+    {title:'蘇家', items:['【第一天】怡萍：蘿蔔糕+蛋+中鮮奶茶熱無糖','【第一天】蘇爸：總匯蛋+大拿鐵半糖熱','【第一天】蘇媽：里肌蛋吐司不抹沙拉醬＋高麗菜+大黑咖啡無糖熱','【第一天】辰宇：巧克力厚片+火腿蛋餅+中冰紅','【第二天】怡萍：高麗菜蛋餅+中鮮奶綠熱無糖','【第二天】蘇爸：蔬菜蛋+大拿鐵半糖熱','【第二天】蘇媽：里肌蛋吐司不抹沙拉醬＋高麗菜+大黑咖啡無糖熱','【第二天】辰宇：抓餅＋蛋+中冰紅']},
+  ]},
+  {text:'小年夜中餐：陋室酩神粥府訂位', owner:'筱芳', done:true, details:[
+    {title:'姊姊家點餐', items:['遊牧原野砂鍋粥 $1,380']},
+    {title:'Ryan家點餐', items:['仙雞妙算砂鍋粥 $1,080','春啼花雕雞鍋（2人份）$880']},
+    {title:'爸媽點餐', items:['仙雞妙算砂鍋粥 $1,080']},
+    {title:'蘭芬家點餐（已包含公婆）', items:['遊牧原野砂鍋粥 $1,380','益生菌酸白菜鍋 $880（2人份）']},
+  ]},
+  {text:'初一午餐：駿懷舊餐廳訂位', owner:'筱芳', done:true, details:[
+    {title:'餐廳資訊', items:['地址：宜蘭縣羅東鎮純精路一段53號','電話：03-961-5168','營業時間：11:00-14:00、17:00-22:00','台式古早味合菜，復古懷舊風格，附停車場，有包廂']},
+  ]},
+  {text:'Ryan海鮮食材購買（除夕晚餐用）', owner:'Ryan', done:true, details:[
+    {title:'除夕年夜飯食材', items:['佛跳牆、冷凍海參、日本火鍋料','熟帝王蟹腳×4、生食級干貝1kg','白蝦、花枝蝦滑、魚皮','鱸魚片×2、黑豬梅花肉片','蘿蔔糕10片、馬卡龍24入']},
+  ]},
+  {text:'阿嬤佛跳牆火鍋湯底 + 白米', owner:'阿嬤', done:true, details:[
+    {title:'阿嬤準備', items:['佛跳牆火鍋湯底','白米']},
+  ]},
+  {text:'姊姊家食材與器具準備', owner:'姊姊家', done:true, details:[
+    {title:'姊姊家準備', items:['電磁爐、大鍋','蜜汁雙方×2、鮑魚佛跳牆','頂湯鮑魚粥、筒味香（滷味醬）','金山勾排翅、高粱風味肉乾']},
+  ]},
+  {text:'小年夜晚餐：百匯窯烤雞餐廳外帶', owner:'筱芳', done:true, details:[
+    {title:'餐廳資訊', items:['地址：宜蘭縣五結鄉五結路三段171號','電話：03-950-1386','龍眼木窯烤雞招牌，宜蘭十大好食餐廳','外帶需提前預訂，附免費停車場']},
+  ]},
+  {text:'除夕上午外出行程（傳藝中心/林業園區/觀光工廠擇一）', owner:'全體', done:false, details:[
+    {title:'方案A：宜蘭傳藝中心', items:['五結在地，車程5-10分鐘，適合親子']},
+    {title:'方案B：羅東林業文化園區', items:['免費入園，適合散步，但若下雨不太方便']},
+    {title:'方案C：溪和水產觀光工廠', items:['室內親子DIY，不怕下雨的備案']},
+  ]},
+  {text:'小年夜午餐後行程（溫泉公園/傳藝中心/直接回民宿）', owner:'全體', done:false, details:[
+    {title:'方案A：礁溪溫泉公園', items:['免費泡腳池，午餐後散步消食的好去處']},
+    {title:'方案B：宜蘭傳藝中心', items:['往民宿方向順路，適合親子']},
+    {title:'方案C：直接回民宿', items:['15:00後入住，可提前到附近逛逛']},
+  ]},
+  {text:'2/15下午全聯採買：火鍋料、蔬菜、飲料、乾糧、餐具', owner:'待分配', done:false, details:[
+    {title:'採買清單', items:['火鍋料、蔬菜（除夕午餐）','壽司（或去耕壽司外帶）','冬粉、泡麵等乾糧','飲料','餐具']},
+    {title:'全聯五結新生店', items:['地址：宜蘭縣五結鄉五結路二段450號','營業時間：07:30-22:30','離民宿最近的全聯，建議入住前順路採買']},
+  ]},
+  {text:'2/16早上外帶壽司（耕壽司 或 全聯現成壽司盒）', owner:'待分配', done:false, details:[
+    {title:'選項', items:['耕壽司外帶','全聯現成壽司盒']},
+  ]},
 ];
 const flowData = [
   {day:1, title:'Day 1 — 2/15（日）小年夜', items:[
@@ -789,10 +846,22 @@ const container = document.getElementById('menuContent');
 if(tab==='checklist') {
 let html = '';
 checklist.forEach((item,i) => {
-html += `<div class="check-item">
-        <span class="check-icon">${item.done?'✅':'⏳'}</span>
-        <div class="check-text">${item.text}<span class="owner">負責：${item.owner}</span></div>
-      </div>`;
+  const hasDetails = item.details && item.details.length > 0;
+  html += `<div class="check-item${hasDetails?' has-details':''}" id="chk-${i}">`;
+  html += `<div class="check-item-header" ${hasDetails?`onclick="toggleCheckDetail(${i})"`:''}>`;
+  html += `<span class="check-icon">${item.done?'✅':'⏳'}</span>`;
+  html += `<div class="check-text">${item.text}<span class="owner">負責：${item.owner}</span></div>`;
+  html += `</div>`;
+  if(hasDetails) {
+    html += `<div class="check-details" id="chk-detail-${i}"><div class="check-details-inner">`;
+    item.details.forEach(d => {
+      html += `<div class="check-detail-group"><div class="check-detail-title">${d.title}</div>`;
+      d.items.forEach(it => { html += `<div class="check-detail-item">${it}</div>`; });
+      html += `</div>`;
+    });
+    html += `</div></div>`;
+  }
+  html += `</div>`;
     });
 container.innerHTML = html;
   }
@@ -823,6 +892,18 @@ html += `</div>`;
 container.innerHTML = html;
   }
 }
+function toggleCheckDetail(i) {
+const item = document.getElementById('chk-'+i);
+const detail = document.getElementById('chk-detail-'+i);
+if(!item || !detail) return;
+if(item.classList.contains('expanded')) {
+  item.classList.remove('expanded');
+  detail.style.maxHeight = '0';
+} else {
+  item.classList.add('expanded');
+  detail.style.maxHeight = detail.scrollHeight + 'px';
+}
+}
 function goToLocation(id) {
 toggleMenu();
 setTimeout(()=>openDetail(id), 400);
@@ -837,6 +918,7 @@ window.switchMenuTab = switchMenuTab;
 window.goToLocation = goToLocation;
 window.openDetail = openDetail;
 window.closeDetail = closeDetail;
+window.toggleCheckDetail = toggleCheckDetail;
 }); // end DOMContentLoaded
 </script>
 </body>
