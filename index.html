@@ -1277,9 +1277,22 @@ function navigateToLocation(locId) {
   }, 100);
 }
 // ===== INIT =====
-updateWeather('all');
-updateWeatherEffect('all');
-drawAllRoutes();
+const dayDateMap = {1:'2026-02-15', 2:'2026-02-16', 3:'2026-02-17'};
+const today = new Date().toISOString().slice(0,10);
+const todayDay = Object.keys(dayDateMap).find(d => dayDateMap[d] === today);
+if(todayDay) {
+  const dayNum = Number(todayDay);
+  const tabs = document.querySelectorAll('.day-tab');
+  tabs.forEach(t => t.classList.remove('active'));
+  tabs[dayNum].classList.add('active');
+  updateWeather(dayNum);
+  updateWeatherEffect(dayNum);
+  drawRoute(dayNum);
+} else {
+  updateWeather('all');
+  updateWeatherEffect('all');
+  drawAllRoutes();
+}
 // Expose functions to global scope for onclick handlers
 window.showDay = showDay;
 window.toggleMenu = toggleMenu;
